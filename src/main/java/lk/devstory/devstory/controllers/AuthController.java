@@ -5,6 +5,7 @@ import lk.devstory.devstory.model.AuthResponse;
 import lk.devstory.devstory.model.User;
 import lk.devstory.devstory.repository.UserRepository;
 import lk.devstory.devstory.security.DevStoryUserDetailsService;
+import lk.devstory.devstory.services.EmailServices;
 import lk.devstory.devstory.utils.JwtUtils;
 import lk.devstory.devstory.utils.Role;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,8 +37,10 @@ public class AuthController {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    private AuthRequest authRequest;
+    @Autowired
+    private EmailServices emailServices;
 
+    private AuthRequest authRequest;
 
     /**
      * Create new user
@@ -55,8 +58,36 @@ public class AuthController {
         newUser.setEmail(user.getEmail());
         newUser.setPassword(passwordEncoder.encode(user.getPassword()));
 
+        // Save User Details
         User savedUser = userRepository.save(newUser);
+
+        // Send Email to Activate Account
+        String activateLink = "http://localhost:8081/auth/"+savedUser.getId()+"/active";
+        String emailBody = "Activate Your Account, Click - "+activateLink;
+        String emailSubject = "Welcome to DevStory, Activate Account";
+        emailServices.sendEmail(user.getEmail(), emailBody, emailSubject);
+
         return ResponseEntity.ok(savedUser);
+    }
+
+    /**
+     * Account Activation
+     *
+     * @param id
+     * */
+    @PutMapping("/{id}/active")
+    // TODO : Authorize for Admin Users only
+    public ResponseEntity<User> activateAccount(@PathVariable Long id) {
+        if (userRepository.findById(id) == null) throw new BadCredentialsException("User not found!");
+
+        User user = userRepository.findById(id).get();
+        user.setActive(true);
+        user.setAccountExpired(true);
+        user.setCredentialExpired(true);
+        user.setLocked(true);
+
+        User result = userRepository.save(user);
+        return ResponseEntity.ok(result);
     }
 
     /**
