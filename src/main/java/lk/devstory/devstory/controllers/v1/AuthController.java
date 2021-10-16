@@ -1,5 +1,7 @@
 package lk.devstory.devstory.controllers.v1;
 
+import lk.devstory.devstory.exceptions.BadRequestException;
+import lk.devstory.devstory.exceptions.ResourceAlreadyExistsException;
 import lk.devstory.devstory.model.AuthRequest;
 import lk.devstory.devstory.model.AuthResponse;
 import lk.devstory.devstory.model.User;
@@ -54,8 +56,8 @@ public class AuthController {
      * */
     @PostMapping("/signup")
     public ResponseEntity<User> createNewUser(@RequestBody User user) {
-        if (userRepository.existsByEmail(user.getEmail())) throw new BadCredentialsException("Email already exist!");
-        if (userRepository.existsByUsername(user.getUsername())) throw new BadCredentialsException("Username already taken!");
+        if (userRepository.existsByEmail(user.getEmail())) throw new ResourceAlreadyExistsException("Email already exist!", user.getEmail());
+        if (userRepository.existsByUsername(user.getUsername())) throw new ResourceAlreadyExistsException("Username already taken!", user.getUsername());
 
         User newUser = new User();
         newUser.setUsername(user.getUsername());
@@ -70,6 +72,7 @@ public class AuthController {
         String token = confirmationTokenService.createNewConfirmationToken(user.getEmail());
         if (token == null) {
             // throw exception as fail to create token
+            throw new BadRequestException("Fail to Create New Access Token");
         }
         mailUtils.sendVerificationEmail(user.getEmail(), token);
 

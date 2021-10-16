@@ -1,5 +1,6 @@
 package lk.devstory.devstory.controllers.v1;
 
+import lk.devstory.devstory.exceptions.BadRequestException;
 import lk.devstory.devstory.model.User;
 import lk.devstory.devstory.repository.UserRepository;
 import lk.devstory.devstory.services.ConfirmationTokenService;
@@ -31,6 +32,7 @@ public class ConfirmationTokenController {
         // Check for Token Validation
         if (confirmationTokenService.validateConfirmationToken(token)) {
             // throw exception as invalid
+            throw new BadRequestException("Invalid Token");
         }
 
         // Find the User
@@ -38,6 +40,7 @@ public class ConfirmationTokenController {
 
         if (user.isAccountExpired() & user.isActive() & user.isCredentialExpired() & user.isLocked()) {
             // throw exception as account already activate and update token as expired
+            throw new BadRequestException("Account Already Activated");
         }
 
         // Activate User Account
@@ -51,6 +54,7 @@ public class ConfirmationTokenController {
 
         if (savedUser == null) {
             // throw exception as fail to update account details
+            throw new BadRequestException("Fail to activate account with email : "+user.getEmail());
         }
 
         httpServletResponse.sendRedirect("https://devstory-portal.herokuapp.com/"); // Add to application.properties
@@ -59,10 +63,6 @@ public class ConfirmationTokenController {
     @GetMapping("/renew/{email}")
     public void renewConfirmationToken(@PathVariable String email) {
         String token = confirmationTokenService.renewConfirmationToken(email);
-
-        if (token == null) {
-            // throw exception as fail to create new token
-        }
         mailUtils.sendVerificationEmail(email, token);
     }
 
