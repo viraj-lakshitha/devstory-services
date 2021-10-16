@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/devstory
+    username: postgres
+    password: admin
+  jpa:
+    show-sql: true
+    properties.hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
+    hibernate.ddl-auto: update
+    properties.hibernate.temp.use_jdbc_metadata_defaults: false
+
+sendgrid:
+  api-key: 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
+  sender: dev.devstory@gmail.com
+  sender-name: DevStory
+  template-id: d-ec671657b4214f9b8822b79ee3a5f5f1
+  base-link: http://localhost:8081/api/v1/confirmation/activate/
+
+server:
+  port: 8081

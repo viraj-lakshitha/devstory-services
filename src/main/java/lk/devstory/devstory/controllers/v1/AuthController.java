@@ -1,12 +1,13 @@
-package lk.devstory.devstory.controllers;
+package lk.devstory.devstory.controllers.v1;
 
 import lk.devstory.devstory.model.AuthRequest;
 import lk.devstory.devstory.model.AuthResponse;
 import lk.devstory.devstory.model.User;
 import lk.devstory.devstory.repository.UserRepository;
 import lk.devstory.devstory.security.DevStoryUserDetailsService;
-import lk.devstory.devstory.services.EmailServices;
+import lk.devstory.devstory.services.ConfirmationTokenService;
 import lk.devstory.devstory.utils.JwtUtils;
+import lk.devstory.devstory.utils.MailUtils;
 import lk.devstory.devstory.utils.Role;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -19,7 +20,7 @@ import org.springframework.web.bind.annotation.*;
 
 @CrossOrigin(origins = "*")
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/auth") // No Version for Auth
 public class AuthController {
 
     @Autowired
@@ -37,10 +38,13 @@ public class AuthController {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    @Autowired
-    private EmailServices emailServices;
-
     private AuthRequest authRequest;
+
+    @Autowired
+    private MailUtils mailUtils;
+
+    @Autowired
+    private ConfirmationTokenService confirmationTokenService;
 
     /**
      * Create new user
@@ -51,6 +55,7 @@ public class AuthController {
     @PostMapping("/signup")
     public ResponseEntity<User> createNewUser(@RequestBody User user) {
         if (userRepository.existsByEmail(user.getEmail())) throw new BadCredentialsException("Email already exist!");
+        if (userRepository.existsByUsername(user.getUsername())) throw new BadCredentialsException("Username already taken!");
 
         User newUser = new User();
         newUser.setUsername(user.getUsername());
@@ -62,32 +67,13 @@ public class AuthController {
         User savedUser = userRepository.save(newUser);
 
         // Send Email to Activate Account
-        String activateLink = "http://localhost:8081/auth/"+savedUser.getId()+"/active";
-        String emailBody = "Activate Your Account, Click - "+activateLink;
-        String emailSubject = "Welcome to DevStory, Activate Account";
-        emailServices.sendEmail(user.getEmail(), emailBody, emailSubject);
+        String token = confirmationTokenService.createNewConfirmationToken(user.getEmail());
+        if (token == null) {
+            // throw exception as fail to create token
+        }
+        mailUtils.sendVerificationEmail(user.getEmail(), token);
 
         return ResponseEntity.ok(savedUser);
-    }
-
-    /**
-     * Account Activation
-     *
-     * @param id
-     * */
-    @PutMapping("/{id}/active")
-    // TODO : Authorize for Admin Users only
-    public ResponseEntity<User> activateAccount(@PathVariable Long id) {
-        if (userRepository.findById(id) == null) throw new BadCredentialsException("User not found!");
-
-        User user = userRepository.findById(id).get();
-        user.setActive(true);
-        user.setAccountExpired(true);
-        user.setCredentialExpired(true);
-        user.setLocked(true);
-
-        User result = userRepository.save(user);
-        return ResponseEntity.ok(result);
     }
 
     /**
@@ -108,7 +94,7 @@ public class AuthController {
     }
 
     /**
-     * Create AuthToken
+     * Login, Create AuthToken
      *
      * @param authRequest
      * @return new Jwt Token
